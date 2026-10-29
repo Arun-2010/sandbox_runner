@@ -1,0 +1,44 @@
+# Executor service + sandbox image.
+#
+#   cd services/executor
+#   export AGENTKIT_EXECUTOR_TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+#   docker compose build            # builds both images
+#   docker compose up executor
+#
+# SECURITY: mounting /var/run/docker.sock gives the executor container root-equivalent control
+# of this host (it can start a privileged container that mounts /). Only the executor gets the
+# socket; agents call it over HTTP and never touch Docker. Run this on a DEDICATED host or VM
+# that holds no other secrets, or point DOCKER_HOST at a rootless Docker daemon instead of
+# mounting the root socket. Never expose port 8080 to the internet without TLS in front.
+
+services:
+  executor:
+    build:
+      context: ../..
+      dockerfile: services/executor/Dockerfile
+    image: agentkit-executor:dev
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      AGENTKIT_EXECUTOR_TOKEN: ${AGENTKIT_EXECUTOR_TOKEN:?set AGENTKIT_EXECUTOR_TOKEN}
+      AGENTKIT_SANDBOX_IMAGE: agentkit-sandbox:dev   # production: agentkit-sandbox@sha256:<digest>
+      # AGENTKIT_SANDBOX_RUNTIME: runsc               # gVisor, if installed on the host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock    # see SECURITY note above
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    depends_on:
+      - sandbox-image
+
+  # Not a long-running service: exists so `docker compose build` also builds the sandbox image
+  # that the executor starts (with --pull never, so it must exist locally).
+  sandbox-image:
+    build:
+      context: ../../sandbox_image
+    image: agentkit-sandbox:dev
+    entrypoint: ["true"]
+    network_mode: none
