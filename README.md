@@ -178,21 +178,3 @@ Every limit has a lower bound, so none can be switched off by accident.
 | Executor service holds the socket | Docker socket = root | agents with direct Docker access |
 | Local backend requires `allow_unsafe=True` | make the unsafe choice explicit and visible | silent fallback when Docker is down |
 
-### Exercises
-
-1. Add gVisor: install `runsc`, set `AGENTKIT_SANDBOX_RUNTIME=runsc`, rerun the attack suite, and compare startup latency.
-2. Add a pre-warmed pool that keeps N *unstarted* containers created (never reused) and measure p50 latency.
-3. Add a per-tenant quota (runs/minute, CPU-seconds/day) in the executor service.
-4. Stream stdout to the client with server-sent events while keeping the same caps.
-5. Add the optional AST lint that warns the model about `pip install` / network calls, as UX only.
-6. Replace `--ulimit nproc` cross-run interference by enabling userns-remap and verify it with a concurrent fork-bomb test.
-
-### Interview points
-
-- Why "inspect the code" is never a sandbox, and what the real boundary is (namespaces, cgroups, seccomp, capabilities, and the kernel).
-- Defence in depth: name the layers and which attack each one stops on its own.
-- Fail closed: health checks for daemon, cgroup features, runtime and image, and no unsafe fallback.
-- Output is an attack surface: byte caps, strict parsing, the nonce, MIME allow-list, and prompt injection via stdout.
-- Timeouts need two levels: inner (process group SIGKILL) and outer (`docker kill`), plus cleanup on cancellation.
-- The Docker socket is root: why the executor is a separate service on a dedicated host.
-- Shared kernel versus gVisor versus microVMs: the cost and isolation trade-offs for multi-tenant systems.
